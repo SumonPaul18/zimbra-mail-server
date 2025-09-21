@@ -462,13 +462,10 @@ tail -f /opt/zimbra/log/audit.log | grep "admin@domain.com"
 
 ---
 
----
-
 ✅ **You’re now a Zimbra CLI Pro — ready to handle anything from spam to server crashes!**
 
 ---
 
 > 🙏 Thank you — your Zimbra server is now safer, faster, and easier to manage.  
-> Need help customizing? Just ask — I’m here to help!
 
 ---
