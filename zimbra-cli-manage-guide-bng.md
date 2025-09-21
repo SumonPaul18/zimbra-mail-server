@@ -485,7 +485,6 @@ tail -f /opt/zimbra/log/audit.log | grep "user@domain.com"
 > 📅 **শেষ আপডেট**: 21-09-2025  
 > 🌐 **সাপোর্টেড**: Zimbra 8.8.x, 9.x, 10.x (Open Source & Network Edition)
 
----
 
 ---
 
