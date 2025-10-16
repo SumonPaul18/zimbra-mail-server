@@ -240,6 +240,11 @@ mailq | awk '/sathish@www\.sathish\.com/ {print $1}' | xargs -n1 postsuper -d
 
 > `xargs -n1` — একবারে একটি করে ডিলিট — নিরাপদ।
 
+```
+/opt/zimbra/common/sbin/postqueue -p | tail -n +2 | awk 'BEGIN { RS = "" } / user@example\.com/ { print $1 }' | tr -d '*' | /opt/zimbra/common/sbin/postsuper -d -
+```
+> `user@example` - replace your actual address
+
 ---
 
 ## 📊 মেইলবক্স সাইজ ও স্টোরেজ ম্যানেজমেন্ট
