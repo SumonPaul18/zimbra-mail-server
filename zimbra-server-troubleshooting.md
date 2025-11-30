@@ -1,18 +1,18 @@
 
-## Track messages sent and received by a user:
+## 1. Track messages sent and received by a user:
 
 shows the logs for all the users:
-
+```
 /opt/zimbra/libexec/zmmsgtrace      
-
+```
 Using '-s' shows all the emails sent by specefic user.
-
+```
 /opt/zimbra/libexec/zmmsgtrace -s sumon@iotlogy.xyz       
-
+```
 Using '-r' sorts emails by the receiver. So for the emails sent to 'gmail.com'.
-
+```
 /opt/zimbra/libexec/zmmsgtrace -r '@gmail.com'         
-
+```
 ...........................
 
 # Troubleshooting incoming mail problems
@@ -24,17 +24,19 @@ https://wiki.zimbra.com/wiki/Mail_Routing_Issues
 
 ...........................
 
-# Verify zimbra status
+#### Verify zimbra status
+```
 su zimbra
 zmcontrol status
-
-# Restart zimbra Services
+```
+#### Restart zimbra Services
+```
 su zimbra
 zmcontrol restart
-
+```
 ---
 
-এই ত্রুটিটি (**"system failure: exception during auth {RemoteManager: mail.pedrollobd.com->zimbra@mail.pedrollobd.com:22}"**) Zimbra মেইল সার্ভারে **SSH-ভিত্তিক রিমোট ম্যানেজমেন্ট** সংক্রান্ত একটি সমস্যা নির্দেশ করছে।
+## 2. এই ত্রুটিটি (**"system failure: exception during auth {RemoteManager: mail.pedrollobd.com->zimbra@mail.pedrollobd.com:22}"**) Zimbra মেইল সার্ভারে **SSH-ভিত্তিক রিমোট ম্যানেজমেন্ট** সংক্রান্ত একটি সমস্যা নির্দেশ করছে।
 
 ### ব্যাখ্যা:
 
@@ -115,7 +117,7 @@ cat /etc/hosts
 
 ---
 
-## 📧 Zimbra সার্ভারের TLS/SSL ত্রুটি সমাধান গাইড
+## 3. 📧 Zimbra সার্ভারের TLS/SSL ত্রুটি সমাধান গাইড
 
 ### 🛑 সমস্যা এবং ত্রুটির কারণ
 
@@ -191,23 +193,23 @@ cat /etc/hosts
 সাধারণত এই ধরনের ত্রুটি স্ব-স্বাক্ষরিত সার্টিফিকেটের মেয়াদ শেষ হলেই হয়। আপনি এটি পুনরায় তৈরি ও স্থাপন করতে পারেন:
 
 
-# নতুন CA (Certificate Authority) তৈরি করুন
+#### নতুন CA (Certificate Authority) তৈরি করুন
 ```
 /opt/zimbra/bin/zmcertmgr createca -new
 ```
-# নতুন CA স্থাপন করুন
+#### নতুন CA স্থাপন করুন
 ```
 /opt/zimbra/bin/zmcertmgr deployca
 ```
-# নতুন সার্টিফিকেট (10 বছরের জন্য) তৈরি করুন
+#### নতুন সার্টিফিকেট (10 বছরের জন্য) তৈরি করুন
 ```
 /opt/zimbra/bin/zmcertmgr createcrt -new -days 3650
 ```
-# নতুন সার্টিফিকেট স্থাপন করুন
+#### নতুন সার্টিফিকেট স্থাপন করুন
 ```
 /opt/zimbra/bin/zmcertmgr deploycrt self
 ```
-# পরিবর্তন কার্যকর করতে পরিষেবা পুনরায় চালু করুন
+#### পরিবর্তন কার্যকর করতে পরিষেবা পুনরায় চালু করুন
 ```
 zmcontrol restart
 ```
@@ -223,7 +225,7 @@ zmcontrol restart
 zmlocalconfig -e ldap_starttls_required=true
 zmlocalconfig -e ldap_starttls_supported=1
 ```
-# পরিষেবা পুনরায় চালু করে পরিবর্তনগুলি কার্যকর করুন
+#### পরিষেবা পুনরায় চালু করে পরিবর্তনগুলি কার্যকর করুন
 ```
 zmcontrol restart
 ```
