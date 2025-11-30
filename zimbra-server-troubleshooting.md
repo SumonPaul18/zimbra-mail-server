@@ -1,3 +1,29 @@
+# Troubleshooting Zimbra Mail Server
+
+### References:
+- Zimbra Incoming Mail Problems
+> https://wiki.zimbra.com/wiki/Incoming_Mail_Problems
+- Zimbra Mail Routing Problem:
+> https://wiki.zimbra.com/wiki/Mail_Routing_Issues
+
+---
+
+#### View Zimbra Logs
+```
+tail -f /var/log/zimbra.log
+```
+#### Verify zimbra status
+```
+su zimbra
+zmcontrol status
+```
+#### Restart zimbra Services
+```
+su zimbra
+zmcontrol restart
+```
+---
+
 
 ## 1. Track messages sent and received by a user:
 
@@ -13,28 +39,8 @@ Using '-r' sorts emails by the receiver. So for the emails sent to 'gmail.com'.
 ```
 /opt/zimbra/libexec/zmmsgtrace -r '@gmail.com'         
 ```
-...........................
-
-# Troubleshooting incoming mail problems
-tail -f /var/log/zimbra.log
-ref: https://wiki.zimbra.com/wiki/Incoming_Mail_Problems
-
-## Zimbra Mail Routing Problem:
-https://wiki.zimbra.com/wiki/Mail_Routing_Issues
-
-...........................
-
-#### Verify zimbra status
-```
-su zimbra
-zmcontrol status
-```
-#### Restart zimbra Services
-```
-su zimbra
-zmcontrol restart
-```
 ---
+
 
 ## 2. এই ত্রুটিটি (**"system failure: exception during auth {RemoteManager: mail.pedrollobd.com->zimbra@mail.pedrollobd.com:22}"**) Zimbra মেইল সার্ভারে **SSH-ভিত্তিক রিমোট ম্যানেজমেন্ট** সংক্রান্ত একটি সমস্যা নির্দেশ করছে।
 
