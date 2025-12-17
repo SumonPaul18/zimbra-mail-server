@@ -282,7 +282,85 @@ cat /var/log/zimbra.log | sed -n 's/.*sasl_username=//p' | sort | uniq -c | sort
 
 ---
 
-## 🧨 ২. ফরজড সেন্ডার (`erm@reverie-bd.com`) থেকে মেইল কিউ ডিলিট
+## 🧨 ২. ফরজড(Forged) সেন্ডার (`erm@reverie-bd.com`) থেকে মেইল কিউ ডিলিট
+
+### 📌 এখন আসি: **"ফরজড সেন্ডার (Forged Sender) কাকে বলে?"**
+
+### 🔸 সহজ উদাহরণ দিয়ে বুঝুন:
+ধরুন, আপনার নাম **Sumon**, কিন্তু আপনি একটি চিঠি লিখে **"প্রধানমন্ত্রী"** হিসেবে সই করলেন — অথচ আপনি প্রধানমন্ত্রী নন।  
+**এটাই হলো "ফরজড সেন্ডার"** — যে মেইলের **"From:" অ্যাড্রেস মিথ্যা**।
+
+### 🔸 টেকনিক্যালি:
+- যেকোনো SMTP ক্লায়েন্ট মেইল পাঠানোর সময় **যেকোনো "From:" ঠিকানা সেট করতে পারে**  
+- যদি মেইল সার্ভার **অথেন্টিকেশন ছাড়াই মেইল গ্রহণ করে** (open relay) → সহজে ফরজ করা যায়  
+- কিন্তু **Zimbra সাধারণত open relay না** — তাই আক্রমণকারী **কম্প্রোমাইজড অ্যাকাউন্টের লগইন ব্যবহার করে**, কিন্তু **From ঠিকানা পাল্টে দেয়**
+
+### 🔸 আপনার কেসে কী হয়েছে?
+- আক্রমণকারী **`shahinur.islam@reverie-bd.com`**-এর পাসওয়ার্ড জানে (ব্রুটফোর্স/ফিশিং ইত্যাদি)  
+- সে **SMTP দিয়ে লগইন করেছে** → Zimbra মেইল accept করেছে  
+- কিন্তু **From: header সেট করেছে `erm@reverie-bd.com`**  
+- Zimbra **"authenticated user = shahinur..."** লগ করেছে, কিন্তু **মেইলের সেন্ডার হিসেবে `erm@...` দেখাচ্ছে**
+
+> ✅ তাই `erm@...` ইউজার নেই — কিন্তু মেইল কিউতে তার নাম আছে!
+
+---
+
+## 🕵️‍♂️ কীভাবে বুঝবেন কোন অ্যাকাউন্ট দিয়ে পাঠানো হচ্ছে?
+
+### এই কমান্ড দিন:
+```bash
+grep 'erm@reverie-bd.com' /var/log/zimbra.log | grep 'sasl_username' | tail -5
+```
+
+আউটপুট হবে এমন:
+```
+Dec 17 10:03:41 mail postfix/smtpd[123]: ... sasl_username=shahinur.islam@reverie-bd.com, ... from=<erm@reverie-bd.com>
+```
+
+> 🔍 **`sasl_username=...`** → আসল লগইন করা ইউজার  
+> **`from=<erm@...>`** → ফরজড সেন্ডার
+
+তাই **শুধু `erm@...` ডিলিট করলে হবে না — `shahinur.islam@...` সিকিউর করতে হবে!**
+
+---
+
+## 🛡️ কী করবেন এখন?
+
+| কাজ | কমান্ড |
+|------|--------|
+| ✅ `erm@...` মেইল কিউ ডিলিট | `su - zimbra -c "cat /tmp/erm_ids.txt \| xargs -r postsuper -d"` |
+| ✅ `shahinur.islam@...` অ্যাকাউন্ট ডিসেবল | `su - zimbra -c "zmprov ma shahinur.islam@reverie-bd.com zimbraAccountStatus maintenance"` |
+| ✅ পাসওয়ার্ড পরিবর্তন | `su - zimbra -c "zmprov sp shahinur.islam@reverie-bd.com 'NewP@ss123!'"` |
+| ✅ আক্রমণকারী IP ব্লক | `sudo iptables -A INPUT -s [IP] -j DROP` |
+| ✅ SPF/DKIM/DMARC চেক করুন | [https://mxtoolbox.com](https://mxtoolbox.com) |
+
+---
+
+## 💡 বোনাস: ভবিষ্যতে ফরজড মেইল বন্ধ করার উপায়
+
+1. **SPF রেকর্ড** যোগ করুন DNS-এ:
+   ```
+   reverie-bd.com. IN TXT "v=spf1 mx a ip4:আপনার_মেইল_সার্ভার_IP -all"
+   ```
+2. **DKIM** সক্রিয় করুন Zimbra-তে:
+   ```bash
+   zmprov md reverie-bd.com zimbraAmavisDomainEnableDKIM TRUE
+   ```
+3. **DMARC** রেকর্ড যোগ করুন:
+   ```
+   _dmarc.reverie-bd.com. IN TXT "v=DMARC1; p=quarantine; rua=mailto:admin@reverie-bd.com"
+   ```
+
+> ✅ এগুলো থাকলে, অন্য মেইল সার্ভারগুলো **ফরজড মেইল রিজেক্ট করবে**!
+
+---
+
+## 📞 সারমর্ম:
+- **ফরজড সেন্ডার = মিথ্যা "From" ঠিকানা**  
+- **আসল সমস্যা = কম্প্রোমাইজড অ্যাকাউন্ট (`shahinur.islam@...`)**  
+- **সমাধান = কিউ ডিলিট + অ্যাকাউন্ট সিকিউর + SPF/DKIM + Fail2ban**
+
+---
 
 ### 📌 সমস্যা
 - `erm@reverie-bd.com` নামে **কোনো ইউজার নেই**
