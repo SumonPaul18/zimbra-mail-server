@@ -209,10 +209,10 @@ xargs -r /opt/zimbra/common/sbin/postsuper -d
 > স্প্যামে ভরা deferred কিউ ক্লিন করতে আদর্শ।
 
 ---
-
+# 📚 Zimbra Mail Server: কম্প্রোমাইজড অ্যাকাউন্ট ও স্প্যাম মেইল কিউ ক্লিনআপ করা
 ## 🗑️ স্প্যাম ও কম্প্রোমাইজড অ্যাকাউন্ট হ্যান্ডলিং
 
-### 🔍 কোন ইউজার স্প্যাম পাঠাচ্ছে? (লগ থেকে)
+### 🔍 কোন ইউজার কম্প্রোমাইজড হয়েছে দেখা (লগ থেকে)
 
 ```bash
 cat /var/log/zimbra.log | sed -n 's/.*sasl_username=//p' | sort | uniq -c | sort -n
@@ -244,6 +244,190 @@ mailq | awk '/sathish@www\.sathish\.com/ {print $1}' | xargs -n1 postsuper -d
 /opt/zimbra/common/sbin/postqueue -p | tail -n +2 | awk 'BEGIN { RS = "" } / user@example\.com/ { print $1 }' | tr -d '*' | /opt/zimbra/common/sbin/postsuper -d -
 ```
 > `user@example` - replace your actual address
+
+---
+
+> **লক্ষ্য**: আপনার Zimbra মেইল সার্ভারে **কম্প্রোমাইজড অ্যাকাউন্ট** থেকে অবৈধ মেইল পাঠানো হচ্ছে। এমনকি **অস্তিত্বহীন ইউজার** (যেমন `erm@reverie-bd.com`) থেকেও মেইল কিউ দেখাচ্ছে। এই গাইডে আপনি শিখবেন:
+> - কীভাবে কম্প্রোমাইজড অ্যাকাউন্ট শনাক্ত করবেন  
+> - কীভাবে **ফরজড সেন্ডার** (যেমন `erm@...`) থেকে মেইল কিউ ডিলিট করবেন  
+> - কীভাবে Zimbra-র টেকনিক্যাল লিমিটেশন (যেমন `Argument list too long`) এড়াবেন  
+> - কীভাবে ভবিষ্যতে এ ধরনের আক্রমণ প্রতিরোধ করবেন
+
+---
+
+## 🔍 ১. কম্প্রোমাইজড অ্যাকাউন্ট শনাক্ত করা
+
+### 📌 সমস্যা
+আপনি দেখেছেন যে `shahinur.islam@reverie-bd.com` থেকে হাজার হাজার মেইল পাঠানো হচ্ছে — এটি স্পষ্টতই কম্প্রোমাইজড।
+
+### ✅ সমাধান: লগ থেকে SASL লগইন অ্যাকাউন্ট চেক করুন
+
+```bash
+cat /var/log/zimbra.log | sed -n 's/.*sasl_username=//p' | sort | uniq -c | sort -n
+```
+
+#### 🔎 কমান্ড ব্যাখ্যা:
+- `sasl_username=` → SMTP AUTH দিয়ে লগইন করা ইউজার
+- `sort | uniq -c` → প্রতিটি ইউজারের লগইন সংখ্যা গণনা
+- `sort -n` → সংখ্যা অনুযায়ী ছোট থেকে বড়
+
+#### 📋 আউটপুট উদাহরণ:
+```
+      1 faysal@reverie-bd.com
+      6 masum.hossain@reverie-bd.com
+  16483 shahinur.islam@reverie-bd.com  ← সন্দেহজনক!
+```
+
+> 💡 **মন্তব্য**: `erm@reverie-bd.com` এখানে দেখাবে না — কারণ এটি **ফরজড sender**, আসল লগইন করেছে `shahinur.islam@...`
+
+---
+
+## 🧨 ২. ফরজড সেন্ডার (`erm@reverie-bd.com`) থেকে মেইল কিউ ডিলিট
+
+### 📌 সমস্যা
+- `erm@reverie-bd.com` নামে **কোনো ইউজার নেই**
+- তবুও `mailq`-এ সেই নাম থেকে মেইল কিউ দেখাচ্ছে
+- আপনি ডিলিট করতে গেলে বিভিন্ন এরর পাচ্ছেন:
+  - `postsuper: fatal: use of this command is reserved for the superuser`
+  - `postqueue: invalid option -- 'd'`
+  - `Argument list too long`
+
+### ✅ সমাধান: সঠিক পদ্ধতিতে মেইল কিউ ডিলিট করুন
+
+#### 🔹 ধাপ ১: Mail ID গুলো এক্সট্রাক্ট করুন
+
+```bash
+mailq | grep -B1 'erm@reverie-bd\.com' | grep '^[A-Z0-9]' | awk '{print $1}' > /tmp/erm_ids.txt
+```
+
+> **ব্যাখ্যা**:
+> - `mailq` → মেইল কিউ দেখায়
+> - `-B1` → ম্যাচ করা লাইনের **আগের লাইন** (যেখানে Mail ID আছে)
+> - `^[A-Z0-9]` → শুধু Mail ID শুরু করা লাইন
+> - আউটপুট `/tmp/erm_ids.txt`-এ সেভ
+
+#### 🔹 ধাপ ২: `postsuper`-এর সঠিক পথ খুঁজুন
+
+```bash
+find /opt/zimbra -name postsuper 2>/dev/null
+```
+
+> **সাধারণ লোকেশন**:
+> - নতুন Zimbra: `/opt/zimbra/common/sbin/postsuper`
+> - পুরানো Zimbra: `/opt/zimbra/postfix/sbin/postsuper`
+
+#### 🔹 ধাপ ৩: `postfix` ইউজার দিয়ে ব্যাচে ব্যাচে ডিলিট করুন
+
+```bash
+cat /tmp/erm_ids.txt | xargs -n 100 -r sudo -u postfix /opt/zimbra/common/sbin/postsuper -d
+```
+
+> **ব্যাখ্যা**:
+> - `sudo -u postfix` → `postfix` ইউজার হিসেবে চালানো (যার spool অ্যাক্সেস আছে)
+> - `xargs -n 100` → প্রতি বার 100টি Mail ID নিয়ে চালাবে (ARG_MAX লিমিট এড়াতে)
+> - `-r` → খালি ইনপুট হলে কমান্ড চালাবে না
+
+#### 🔹 ধাপ ৪: নিশ্চিত করুন
+
+```bash
+mailq | grep 'erm@reverie-bd\.com'
+```
+
+> কিছু না আসলে — **সফল!**
+
+---
+
+## 🛑 ৩. কেন ভুল কমান্ডগুলো কাজ করে না?
+
+| কমান্ড | সমস্যা | কারণ |
+|--------|--------|------|
+| `su - zimbra` → `postsuper -d` | `reserved for superuser` | `zimbra` ইউজারের spool অ্যাক্সেস নেই |
+| `postqueue -d` | `invalid option -d` | `postqueue`-এর ডিলিট অপশন নেই |
+| `$(cat ids.txt)` | `Argument list too long` | লিনাক্সে ARG_MAX লিমিট আছে (~2MB) |
+
+> ✅ **মনে রাখুন**:  
+> - শুধুমাত্র **`postsuper`** মেইল ডিলিট করে  
+> - শুধুমাত্র **`postfix`** বা **`root`** ইউজার দিয়ে চালানো যায়  
+> - **`xargs -n N`** ব্যবহার করুন বড় কিউয়ের জন্য
+
+---
+
+## 🔐 ৪. কম্প্রোমাইজড অ্যাকাউন্ট সিকিউর করা
+
+### 📌 সমস্যা
+`erm@...` মেইলগুলো আসলে `shahinur.islam@...` অ্যাকাউন্ট থেকে পাঠানো হচ্ছিল (forged sender)।
+
+### ✅ সমাধান: আসল কম্প্রোমাইজড অ্যাকাউন্ট ম্যানেজ করুন
+
+#### 🔹 অ্যাকাউন্ট অস্থায়ীভাবে ডিসেবল করুন
+```bash
+su - zimbra -c "zmprov ma shahinur.islam@reverie-bd.com zimbraAccountStatus maintenance"
+```
+
+#### 🔹 পাসওয়ার্ড পরিবর্তন করুন
+```bash
+su - zimbra -c "zmprov sp shahinur.islam@reverie-bd.com 'New_Strong_P@ss_2025!'"
+```
+
+#### 🔹 আক্রমণকারী IP খুঁজুন
+```bash
+grep 'shahinur.islam@reverie-bd.com' /var/log/zimbra.log | grep 'sasl_username' | tail -5
+```
+
+> উদাহরণ আউটপুট:
+> ```
+> ... client=unknown[45.153.242.110]
+> ```
+> এই IP টি ফায়ারওয়াল দিয়ে ব্লক করুন:
+> ```bash
+> iptables -A INPUT -s 45.153.242.110 -j DROP
+> ```
+
+---
+
+## 🛡️ ৫. ভবিষ্যতে আক্রমণ প্রতিরোধ করার উপায়
+
+### ✅ ৫.১. Outbound Rate Limit সেট করুন
+```bash
+su - zimbra -c "zmprov mc default zimbraMtaMaxMessageRate 20"
+su - zimbra -c "zmprov mc default zimbraMtaMaxRecipientRate 50"
+```
+> প্রতি মিনিটে শুধুমাত্র 20টি মেইল পাঠাতে পারবে প্রতিটি ইউজার
+
+### ✅ ৫.২. Fail2Ban ইনস্টল করুন
+```bash
+yum install fail2ban
+```
+> SMTP/IMAP brute-force আটকাবে
+
+### ✅ ৫.৩. SPF, DKIM, DMARC সেট করুন
+- **SPF**: কে আপনার ডোমেইন থেকে মেইল পাঠাতে পারবে
+- **DKIM**: মেইল সিগনেচার ভেরিফাই করবে
+- **DMARC**: ফেইল হলে কী করবে (quarantine/reject)
+
+> এগুলো থাকলে `erm@...` এর মতো forged sender বাইরে থেকেই ব্লক হবে
+
+---
+
+## 🧰 ৬. এক লাইনার রেফারেন্স শীট
+
+| কাজ | কমান্ড |
+|-----|--------|
+| কম্প্রোমাইজড ইউজার খুঁজুন | `cat /var/log/zimbra.log \| sed -n 's/.*sasl_username=//p' \| sort \| uniq -c \| sort -n` |
+| ফরজড sender থেকে Mail ID | `mailq \| grep -B1 'erm@reverie-bd\.com' \| grep '^[A-Z0-9]' \| awk '{print $1}' > /tmp/ids.txt` |
+| মেইল ডিলিট (ব্যাচে) | `cat /tmp/ids.txt \| xargs -n 100 -r sudo -u postfix /opt/zimbra/common/sbin/postsuper -d` |
+| অ্যাকাউন্ট ডিসেবল | `su - zimbra -c "zmprov ma user@domain zimbraAccountStatus maintenance"` |
+| পাসওয়ার্ড পরিবর্তন | `su - zimbra -c "zmprov sp user@domain 'NewPass123!'"` |
+
+---
+
+## ✅ চূড়ান্ত পরামর্শ
+
+1. **প্রথমে Zimbra MTA চালু আছে কিনা চেক করুন** (`zmcontrol status`)
+2. **কখনো `zimbra` ইউজার দিয়ে `postsuper` চালাবেন না**
+3. **বড় কিউয়ের জন্য সবসময় `xargs -n 100` ব্যবহার করুন**
+4. **আসল কম্প্রোমাইজড অ্যাকাউন্ট (`shahinur.islam@...`) সিকিউর করুন — শুধু `erm@...` নয়!**
+5. **SPF/DKIM/DMARC + Fail2ban = সবচেয়ে শক্তিশালী প্রতিরোধ**
 
 ---
 
