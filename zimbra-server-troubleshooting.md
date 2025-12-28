@@ -239,8 +239,52 @@ zmcontrol restart
 আপনার Zimbra সার্ভারের সমস্যা ঠিক হয়েছে কিনা, তা নিশ্চিত করতে `zmcontrol status` দিয়ে পরীক্ষা করুন।
 
 ---
-
 ## আপনার Zimbra সার্ভারে **`/opt/zimbra`** পার্টিশন **100% ফুল** — এটাই মূল সমস্যা।  
+
+```
+[zimbra@mail ~]$ zmcontrol status
+Host mail.reverie-bd.com
+        amavis                  Running
+        antispam                Running
+        antivirus               Stopped
+        zmclamdctl is not running
+        zmfreshclamctl is not running
+        ldap                    Running
+        logger                  Running
+        mailbox                 Running
+        mta                     Stopped
+        zmsaslauthdctl is not running
+        postfix is not running
+        opendkim                Stopped
+        zmopendkimctl is not running.
+        service webapp          Running
+        snmp                    Stopped
+        zmswatch is not running.
+        spell                   Stopped
+        zmapachectl is not running
+        stats                   Stopped
+        zimbra webapp           Running
+        zimbraAdmin webapp      Running
+        zimlet webapp           Running
+        zmconfigd               Running
+
+[zimbra@mail ~]$ df -h
+Filesystem                     Size  Used Avail Use% Mounted on
+devtmpfs                       7.8G     0  7.8G   0% /dev
+tmpfs                          7.8G     0  7.8G   0% /dev/shm
+tmpfs                          7.8G  769M  7.1G  10% /run
+tmpfs                          7.8G     0  7.8G   0% /sys/fs/cgroup
+/dev/mapper/centos-root         20G  2.7G   18G  14% /
+/dev/sda1                     1014M  194M  821M  20% /boot
+/dev/mapper/centos-home         50G  2.8G   48G   6% /var
+/dev/mapper/centos-opt_zimbra  945G  937G  8.4G 100% /opt/zimbra
+tmpfs                          1.6G     0  1.6G   0% /run/user/0
+[zimbra@mail ~]$
+
+
+```
+
+### আপনার Zimbra সার্ভারে **`/opt/zimbra`** পার্টিশন **100% ফুল** — এটাই মূল সমস্যা।  
 Zimbra-র অ্যান্টিভাইরাস (ClamAV), MTA (Postfix), OpenDKIM, SNMP, Spell, Stats ইত্যাদি সার্ভিসগুলো বন্ধ হয়ে গেছে, কারণ সিস্টেমে **ডিস্ক স্পেস নেই**। Zimbra এমন অবস্থায় কোনো লগ বা টেম্প ফাইল লিখতে পারে না, ফলে সার্ভিসগুলো ক্র্যাশ করে।
 
 ---
