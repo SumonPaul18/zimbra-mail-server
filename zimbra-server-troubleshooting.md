@@ -240,3 +240,98 @@ zmcontrol restart
 
 ---
 
+## আপনার Zimbra সার্ভারে **`/opt/zimbra`** পার্টিশন **100% ফুল** — এটাই মূল সমস্যা।  
+Zimbra-র অ্যান্টিভাইরাস (ClamAV), MTA (Postfix), OpenDKIM, SNMP, Spell, Stats ইত্যাদি সার্ভিসগুলো বন্ধ হয়ে গেছে, কারণ সিস্টেমে **ডিস্ক স্পেস নেই**। Zimbra এমন অবস্থায় কোনো লগ বা টেম্প ফাইল লিখতে পারে না, ফলে সার্ভিসগুলো ক্র্যাশ করে।
+
+---
+
+### ✅ সমাধানের ধাপসমূহ (Step-by-step):
+
+#### **ধাপ 1: জরুরি ক্লিনআপ — অপ্রয়োজনীয় ফাইল মুছুন**
+
+1. **Zimbra লগ ফাইলগুলো পরীক্ষা করুন** (সবচেয়ে বড় জায়গা নেয়):
+   ```bash
+   du -sh /opt/zimbra/log/*
+   du -sh /opt/zimbra/mailboxd/logs/*
+   ```
+   পুরনো লগ ফাইল (যেমন: `mailboxd.out.1`, `zimbra.log.1`) মুছুন:
+   ```bash
+   sudo su - zimbra
+   rm -f /opt/zimbra/log/*.log.* /opt/zimbra/log/*.out.*
+   rm -f /opt/zimbra/mailboxd/logs/*.log.*
+   ```
+
+2. **ClamAV ভাইরাস ডেটাবেস ক্যাশে চেক করুন**:
+   ```bash
+   du -sh /opt/zimbra/data/clamav/db/
+   ```
+   যদি সেখানে পুরনো/করাপ্টেড ডেটাবেস থাকে (যেমন `.cld`, `.cvd` ফাইল), Zimbra রিস্টার্টের পর অটো ডাউনলোড হবে — তাই অস্থায়ীভাবে মুছে ফেলতে পারেন:
+   ```bash
+   rm -f /opt/zimbra/data/clamav/db/*.cld /opt/zimbra/data/clamav/db/*.cvd
+   ```
+
+3. **Zimbra টেম্প ফাইল ক্লিন করুন**:
+   ```bash
+   rm -rf /opt/zimbra/data/tmp/*
+   ```
+
+4. **Core dump বা ক্র্যাশ ফাইল আছে কিনা চেক করুন**:
+   ```bash
+   find /opt/zimbra -name "core.*" -delete
+   ```
+
+---
+
+#### **ধাপ 2: ডিস্ক স্পেস ফ্রি করার পর Zimbra সার্ভিসগুলো রিস্টার্ট করুন**
+
+```bash
+su - zimbra
+zmcontrol restart
+```
+
+> ⚠️ **দ্রষ্টব্য**: `zmcontrol start` না দিয়ে `restart` দিন, কারণ কিছু সার্ভিস আধা-চালু থাকতে পারে।
+
+---
+
+#### **ধাপ 3: ভবিষ্যতে এড়ানোর জন্য — অটো লগ রোটেশন ও মনিটরিং সেট করুন**
+
+1. **লগরোটেট কনফিগার করুন** (যদি না থাকে):
+   - `/etc/logrotate.d/zimbra` ফাইলটি চেক করুন।
+   - যদি না থাকে, Zimbra-র ডিফল্ট লগরোটেট স্ক্রিপ্ট ইনস্টল করুন:
+     ```bash
+     /opt/zimbra/libexec/zmfixperms --extended
+     /opt/zimbra/bin/zmlogprocess --rotate
+     ```
+
+2. **Zimbra-র অটো ক্লিনআপ স্ক্রিপ্ট** (যেমন `zmlogswatchctl`) চালু রাখুন — এটি সিস্টেমের উপর নির্ভর করে।
+
+3. **ডিস্ক মনিটরিং যোগ করুন** (Zabbix/Nagios/ওয়েব UI-তে Alert সেট করুন)।
+
+---
+
+#### **ধাপ 4 (অপশনাল): পার্টিশন সাইজ বাড়ান (দীর্ঘমেয়াদী সমাধান)**
+
+আপনার `/opt/zimbra` পার্টিশনটি **945G-এর মধ্যে 937G ব্যবহৃত** — শুধু ক্লিনআপ করলে সমস্যা আবার ফিরে আসবে।
+
+- **LVM ব্যবহার করে পার্টিশন বাড়ানোর চেষ্টা করুন** (যদি অতিরিক্ত ডিস্ক স্পেস থাকে):
+  ```bash
+  lvextend -L +100G /dev/mapper/centos-opt_zimbra
+  xfs_growfs /opt/zimbra   # যদি XFS ফাইলসিস্টেম হয়
+  ```
+- অথবা **Zimbra-র মেইলস্টোর (`/opt/zimbra/store`) আলাদা ডিস্কে মাউন্ট করুন**।
+
+---
+
+### 📌 সারাংশ:
+- **অবিলম্বে `/opt/zimbra` থেকে কমপক্ষে 5–10 GB জায়গা ফাঁকা করুন**।
+- **সার্ভিসগুলো রিস্টার্ট করুন**।
+- **লগ ম্যানেজমেন্ট ও ডিস্ক মনিটরিং সেট করুন**।
+- **দীর্ঘমেয়াদে ডিস্ক ক্যাপাসিটি প্ল্যানিং করুন**।
+
+যদি ক্লিনআপের পরেও `zmcontrol status`-এ একই সমস্যা থাকে, তাহলে ClamAV বা Postfix-এর লগ চেক করুন:
+```bash
+tail -f /opt/zimbra/log/clamd.log
+tail -f /opt/zimbra/log/mailbox.log
+```
+
+---
