@@ -234,11 +234,15 @@ zmprov sp sathish@www.sathish.com 'NewStrongP@ss!2024'
 
 ### 🗑️ কম্প্রোমাইজড ইউজারের সব কিউ মেইল ডিলিট
 
+#### নিচের কমান্ডটি শুধুমাত্র Postfix Server এ অথবা Postfix Outgoing Server এ কাজ করবে।
+
 ```bash
 mailq | awk '/sathish@www\.sathish\.com/ {print $1}' | xargs -n1 postsuper -d
 ```
 
 > `xargs -n1` — একবারে একটি করে ডিলিট — নিরাপদ।
+
+#### নিচের কমান্ডটি শুধুমাত্র Zimbra Server এ কাজ করবে।
 
 ```
 /opt/zimbra/common/sbin/postqueue -p | tail -n +2 | awk 'BEGIN { RS = "" } / user@example\.com/ { print $1 }' | tr -d '*' | /opt/zimbra/common/sbin/postsuper -d -
