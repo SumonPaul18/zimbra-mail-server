@@ -55,41 +55,65 @@ zmmtactl restart && zmamavisdctl restart
 
 > 1. First, we create two files that will store the domains and email addresses we wish to whitelist or blacklist.
 
-$ sudo touch /opt/zimbra/conf/{whitelist,blacklist}
-All whitelists will be in the file /opt/zimbra/conf/whitelist, and the IPs in the blacklist can be seen in the file /opt/zimbra/conf/blacklist.
+```
+sudo touch /opt/zimbra/conf/{whitelist,blacklist}
+```
+> All whitelists will be in the file /opt/zimbra/conf/whitelist, and the IPs in the blacklist can be seen in the file /opt/zimbra/conf/blacklist.
 
 Example:
-
-$ cat /opt/zimbra/conf/whitelist
+```
+cat /opt/zimbra/conf/whitelist
+```
+```
 bob@example.com example.org
-$ cat /opt/zimbra/conf/blacklist
+```
+```
+cat /opt/zimbra/conf/blacklist
+```
+```
 spammer@example.com
 fakedomain.com
-After that we modify our /opt/zimbra/conf/amavisd.conf by adding the below lines.
+```
+> After that we modify our /opt/zimbra/conf/amavisd.conf by adding the below lines.
 
+```
+nano /opt/zimbra/conf/amavisd.conf
+```
+```
 read_hash(%whitelist_sender, '/opt/zimbra/conf/whitelist');
 read_hash(%blacklist_sender, '/opt/zimbra/conf/blacklist');
-After that, we save the changes and restart the Amavis service.
+```
+> After that, we save the changes and restart the Amavis service.
 
+```
 sudo su - zimbra -c "zmamavisdctl restart"
-We can then retry to send emails from a domain/address in the blacklist or the ones in the whitelist.
+```
+> We can then retry to send emails from a domain/address in the blacklist or the ones in the whitelist.
 
-As a result, we will be able to see that mail delivery is fine now.
+> As a result, we will be able to see that mail delivery is fine now.
 
 ---
 
 ## How to update a list of trusted MTA networks?
-First, we can check the setting for the current list of trustable networks.
+> First, we can check the setting for the current list of trustable networks.
 
-$ sudo su - zimbra
-$ postconf mynetworks
-$ zmprov gs 'zmhostname' zimbraMtaMyNetworks
-Next, we can use the following commands to update trustworthy networks in the MTA
-
-$ sudo su - zimbra
-$ zmprov ms 'zmhostname' zimbraMtaMyNetworks '127.0.0.0/8 10.0.0.0/8 192.168.3.0/22'
-
-The zmconfigd will automatically restart the MTA processes after this change is made.
+```
+sudo su - zimbra
+```
+```
+postconf mynetworks
+```
+```
+zmprov gs 'zmhostname' zimbraMtaMyNetworks
+```
+> Next, we can use the following commands to update trustworthy networks in the MTA
+```
+sudo su - zimbra
+```
+```
+zmprov ms 'zmhostname' zimbraMtaMyNetworks '127.0.0.0/8 10.0.0.0/8 192.168.3.0/22'
+```
+> The zmconfigd will automatically restart the MTA processes after this change is made.
 
 ---
 
