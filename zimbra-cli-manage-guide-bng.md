@@ -147,9 +147,13 @@ zmprov ma sumon@mydomain.com zimbraIsAdminAccount FALSE
 
 ```bash
 mailq
+```
 # or
+```
 postqueue -p
+```
 # or full path
+```
 /opt/zimbra/common/sbin/postqueue -p
 ```
 
@@ -242,7 +246,7 @@ mailq | awk '/sathish@www\.sathish\.com/ {print $1}' | xargs -n1 postsuper -d
 
 > `xargs -n1` — একবারে একটি করে ডিলিট — নিরাপদ।
 
-#### নিচের কমান্ডটি শুধুমাত্র Zimbra Server এ কাজ করবে।
+#### নিচের কমান্ডটি শুধুমাত্র Zimbra Server এ কাজ করবে এবং সুপার ইউজার থেকে রান করতে হবে।
 
 ```
 /opt/zimbra/common/sbin/postqueue -p | tail -n +2 | awk 'BEGIN { RS = "" } / user@example\.com/ { print $1 }' | tr -d '*' | /opt/zimbra/common/sbin/postsuper -d -
